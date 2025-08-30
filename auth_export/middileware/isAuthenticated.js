@@ -3,7 +3,7 @@ import { ApiError } from '../utils/ApiError.js';
 import asyncHandler from '../utils/AsyncHandler.js';
 import User from '../services/auth/models/User.js';
 
-const verifyJWT = asyncHandler(async (req, res, next) => {
+const isAuthenticated = asyncHandler(async (req, res, next) => {
   try {
     const token = req.cookies?.authToken || req.header("Authorization")?.replace("Bearer ", "");
     if (!token) {
@@ -23,4 +23,4 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
   }
 });
 
-export { verifyJWT };
+export { isAuthenticated };

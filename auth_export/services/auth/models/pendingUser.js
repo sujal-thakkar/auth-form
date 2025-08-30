@@ -9,6 +9,7 @@ const pendingUserSchema = new mongoose.Schema({
       type: Date,
       expires: 0,
   },
+  phone: String
 }, { timestamps: true });
 
 const PendingUser = mongoose.model('PendingUser', pendingUserSchema);
