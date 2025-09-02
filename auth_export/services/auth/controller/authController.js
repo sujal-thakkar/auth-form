@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import PendingUser from '../models/pendingUser.js';
 import {sendOTP, generateOTP} from '../../../utils/services/phoneOtp.js';
+import { uploadToCloudinary } from "../../../utils/services/upload.service.js";
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password,phone } = req.body;
 
@@ -13,11 +14,11 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are required");
   }
 
-  const existingUser = await User.findOne({ email });
+  const existingUser = await User.findOne({ phone});
   if (existingUser) {
     throw new ApiError(409, "User with this email already exists");
   }
-  const pendingUser = await PendingUser.findOne({ email });
+  const pendingUser = await PendingUser.findOne({ phone });
   if (pendingUser) {
     await PendingUser.deleteOne({ _id: pendingUser._id });
   }
@@ -25,18 +26,23 @@ const registerUser = asyncHandler(async (req, res) => {
   const otp=generateOTP();
   pending.verificationToken = otp;
   pending.verificationTokenExpires = new Date(Date.now()+10*60*1000);
+if (req.file) {
+  pending.profilePic = req.file.path;
+}
+await pending.save();
+  await pending.save();
   sendOTP(phone ,otp);
   return apiResponce(200,"please verify your phone number");
 });
 
 const loginUser = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const {phone, password } = req.body;
 
-  if (!email || !password) {
+  if (!phone || !password) {
     throw new ApiError(400, "Email and password are required");
   }
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ phone });
   if (!user) {
     throw new ApiError(404, "Invalid email or password");
   }
@@ -63,7 +69,7 @@ const loginUser = asyncHandler(async (req, res) => {
   );
 });
 
-const forgotPassword = asyncHandler(async (req, res) => {
+const forgotPasswordEmail = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
@@ -148,11 +154,16 @@ const verifyOtp = asyncHandler(async(req,res)=>{
   if (!pending) {
     throw new ApiError(400, "OTP verification token is invalid or has expired");
   }
+  let profilePicUrl = "";
+  if (pending.profilePic) {
+    profilePicUrl = await uploadToCloudinary(pending.profilePic);
+  }
   const user = await User.create({
     name: pending.name,
     email: pending.email,
     password: pending.password,
     isVerified: true,
+    profilePic: profilePicUrl
   });
   await PendingUser.deleteOne({ _id: pending._id });
   const userData = user.toObject();
@@ -161,7 +172,7 @@ const verifyOtp = asyncHandler(async(req,res)=>{
    
 })
 
-const resetPassword = asyncHandler(async (req, res) => {
+const resetPasswordEmail = asyncHandler(async (req, res) => {
   const { token } = req.params;
   const {password}= req.body;
   if(!password){
@@ -196,8 +207,59 @@ const resetPassword = asyncHandler(async (req, res) => {
      sameSite: 'lax',
    });
   }
-  return res.redirect(`${process.env.frontURL}/`);
+  return res.status(200).json(
+    new apiResponce(200,"password reset successfull")
+  )
 
+});
+
+const forgotPasswordOTP = asyncHandler(async (req, res) => {
+  const { phone } = req.body;
+  const user = await User.findOne({ phone });
+  if (!user) throw new ApiError(404, "User not found");
+  const pending = await PendingUser.findOne({ phone: phone });
+  if (pending) {
+    await PendingUser.deleteOne({ _id: pending._id });
+  }
+  const otp = generateOTP();
+  const newPending = await PendingUser.create({
+    phone: phone,
+    verificationToken: otp,
+    verificationTokenExpires: new Date(Date.now() + 10 * 60 * 1000)
+  });
+  user.resetOTP = otp;
+  user.resetOTPExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+  await user.save();
+  await sendOTP(phone, otp);
+  return apiResponce(200, phone, "OTP sent to your phone");
+});
+const resetPasswordOTP = asyncHandler(async (req, res) => {
+  const { phone, otp, newPassword } = req.body;
+  const user = await User.findOne({ phone });
+  const pending = await PendingUser.findOne({ phone });
+  if (!user) throw new ApiError(404, "User not found");
+  if (!pending) throw new ApiError(404, "User not found or otp expired");
+  if (
+    pending.verificationToken !== otp ||
+    pending.verificationTokenExpires < new Date()
+  ) {
+    throw new ApiError(400, "Invalid or expired OTP");
+  }
+  user.password = newPassword;
+  user.tokenVersion += 1;
+  await user.save({ validateBeforeSave: false });
+  await PendingUser.deleteOne({ _id: pending._id });
+  if (req.cookies?.authToken) {
+    res.clearCookie('authToken', {
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'lax',
+    });
+  }
+  return res.status(200).json(
+    new apiResponce(200, "password reset successfull")
+  );
 });
 const Logout = asyncHandler((req, res) => {
   res.clearCookie('authToken', {
@@ -209,12 +271,15 @@ const Logout = asyncHandler((req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 });
 
+
 export {
   registerUser,
   loginUser,
-  forgotPassword,
+  forgotPasswordEmail,
   verifyEmail,
-  resetPassword,
+  resetPasswordEmail,
   Logout,
-  verifyOtp
+  verifyOtp,
+  forgotPasswordOTP,
+  resetPasswordOTP
 };

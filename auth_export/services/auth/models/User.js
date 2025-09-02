@@ -20,6 +20,8 @@ const userSchema = new mongoose.Schema({
     required: true,
     minlength: 8,
   },
+  profilePic: { type: String },
+  phone: String,
   isVerified: {
     type: Boolean,
     default: false,
@@ -46,6 +48,8 @@ userSchema.methods.generateAuthToken = function () {
 });
 
 };
+
+userSchema.index({ phone: 1 });
 
 const User = mongoose.model('User', userSchema);
 

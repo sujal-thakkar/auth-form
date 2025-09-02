@@ -1,8 +1,8 @@
-import PendingUser from "../../services/auth/models/pendingUser";
-import { apiResponce } from "../ApiResponseHandler";
+import PendingUser from "../../services/auth/models/pendingUser.js";
+import { apiResponce } from "../ApiResponseHandler.js";
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import asyncHandler from "../AsyncHandler";
+import asyncHandler from "../AsyncHandler.js";
 const emailVerify= asyncHandler (async (req,res)=>{
   if(!req.user.email){
     return res.status(403).json(new apiResponce(403,"enter the email"))
