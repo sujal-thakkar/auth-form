@@ -10,6 +10,7 @@ const useAuthForm = (initialMode = 'login') => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: ''
   });
@@ -33,6 +34,11 @@ const useAuthForm = (initialMode = 'login') => {
     const newErrors = {};
     if (mode === 'signup' && !formData.name.trim()) {
       newErrors.name = 'Name is required';
+    }
+    if (mode === 'signup' && !formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (mode === 'signup' && !/^\+?\d{10,15}$/.test(formData.phone.trim())) {
+      newErrors.phone = 'Enter a valid phone number with country code';
     }
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
@@ -72,25 +78,27 @@ const useAuthForm = (initialMode = 'login') => {
             password: formData.password
           }, { withCredentials: true }); 
           setIsAuthenticated(true); 
-          setMessage({ type: 'success', text: 'Login successful! Redirecting...' });
+          setMessage({ type: 'success', text: response?.data?.message || 'Login successful! Redirecting...' });
           navigate('/home');
           break;
 
         case 'signup':
-          await axios.post('/api/auth/register', {
+          response = await axios.post('/api/auth/register', {
             name: formData.name,
             email: formData.email,
+            phone: formData.phone,
             password: formData.password,
             confirmPassword: formData.confirmPassword
           }, { withCredentials: true });
-          setMessage({ type: 'success', text: 'Account created successfully! Please check your email to verify your account.' });
+          setMessage({ type: 'success', text: response?.data?.message || 'Account created successfully! Please follow the verification steps.' });
           break;
 
         case 'forgot':
-          await axios.post('/api/auth/forgot-password', {
+          response = await axios.post('/api/auth/forgot-password', {
             email: formData.email
           });
-          setMessage({ type: 'success', text: 'Password reset link sent to your email. Please check your inbox.' });          setTimeout(() => {
+          setMessage({ type: 'success', text: response?.data?.message || 'Password reset link sent to your email. Please check your inbox.' });
+          setTimeout(() => {
             setMode('login');
             resetForm();
           }, 3000);
@@ -114,7 +122,7 @@ const useAuthForm = (initialMode = 'login') => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', password: '', confirmPassword: '' });
+    setFormData({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
     setErrors({});
     setMessage({ type: '', text: '' });
   };

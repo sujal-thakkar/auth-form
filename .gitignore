@@ -79,3 +79,5 @@ error.log
 # Optional: Logs you might generate manually
 *.out
 *.err
+
+auth_export/.env

@@ -5,6 +5,8 @@ import asyncHandler from '../../../utils/AsyncHandler.js';
 const registerSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
+  phone: z.string().min(1, "Phone number is required").regex(/^\+?\d{10,15}$/,
+    "Phone number must include country code and contain 10-15 digits"),
   password: z.string().min(8, "Password must be at least 8 characters").regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one uppercase letter, one lowercase letter, and one number"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {

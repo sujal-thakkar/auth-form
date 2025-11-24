@@ -30,9 +30,8 @@ if (req.file) {
   pending.profilePic = req.file.path;
 }
 await pending.save();
-  await pending.save();
-  sendOTP(phone ,otp);
-  return apiResponce(200,"please verify your phone number");
+  await sendOTP(phone ,otp);
+  return res.status(200).json(new apiResponce(200, {}, "Please verify your phone number"));
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -65,7 +64,7 @@ const loginUser = asyncHandler(async (req, res) => {
     maxAge: 6 * 30 * 24 * 60 * 60 * 1000 
 });
   return res.status(200).json(
-    new apiResponce(200,"User logged in successfully")
+    new apiResponce(200, {}, "User logged in successfully")
   );
 });
 
@@ -138,7 +137,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Email verification token is invalid or has expired");
   }
   await PendingUser.deleteOne({ _id: pending._id });
-  return apiResponce(200,"email verified successfully");
+  return res.status(200).json(new apiResponce(200, {}, "Email verified successfully"));
 
 });
 
@@ -168,7 +167,7 @@ const verifyOtp = asyncHandler(async(req,res)=>{
   await PendingUser.deleteOne({ _id: pending._id });
   const userData = user.toObject();
   delete userData.password;
-  return apiResponce(200,userData,"Email verified successfully");
+  return res.status(200).json(new apiResponce(200, userData, "Email verified successfully"));
    
 })
 
@@ -208,8 +207,8 @@ const resetPasswordEmail = asyncHandler(async (req, res) => {
    });
   }
   return res.status(200).json(
-    new apiResponce(200,"password reset successfull")
-  )
+    new apiResponce(200, {}, "password reset successful")
+  );
 
 });
 
@@ -231,7 +230,7 @@ const forgotPasswordOTP = asyncHandler(async (req, res) => {
   user.resetOTPExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
   await user.save();
   await sendOTP(phone, otp);
-  return apiResponce(200, phone, "OTP sent to your phone");
+  return res.status(200).json(new apiResponce(200, phone, "OTP sent to your phone"));
 });
 const resetPasswordOTP = asyncHandler(async (req, res) => {
   const { phone, otp, newPassword } = req.body;
@@ -258,7 +257,7 @@ const resetPasswordOTP = asyncHandler(async (req, res) => {
     });
   }
   return res.status(200).json(
-    new apiResponce(200, "password reset successfull")
+    new apiResponce(200, {}, "Password reset successful")
   );
 });
 const Logout = asyncHandler((req, res) => {

@@ -1,16 +1,25 @@
 import twilio from 'twilio'
 const accountSid = process.env.TWILIO_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
-const client = new twilio(accountSid, authToken);
+const fromNumber = process.env.TWILIO_PHONE;
+let client = null;
 
- export function generateOTP(length = 6) {
+if (accountSid && authToken) {
+  client = new twilio(accountSid, authToken);
+}
+
+export function generateOTP(length = 6) {
   return Math.floor(Math.pow(10, length - 1) + Math.random() * 9 * Math.pow(10, length - 1)).toString();
 }
 
 export async function sendOTP(phoneNumber,otp) {
+  if (!client || !fromNumber) {
+    console.warn("Twilio credentials not configured; skipping OTP send");
+    return;
+  }
   await client.messages.create({
     body: `Your OTP is ${otp}`,
-    from: process.env.TWILIO_PHONE, 
+    from: fromNumber, 
     to: phoneNumber
   });
 
