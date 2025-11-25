@@ -5,16 +5,17 @@ import User from '../models/User.js';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import PendingUser from '../models/pendingUser.js';
-import {sendOTP, generateOTP} from '../../../utils/services/phoneOtp.js';
+import { sendOTP, generateOTP } from '../../../utils/services/phoneOtp.js';
 import { uploadToCloudinary } from "../../../utils/services/upload.service.js";
+
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password,phone } = req.body;
+  const { name, email, password, phone } = req.body;
 
   if (!name || !email || !password || !phone) {
     throw new ApiError(400, "All fields are required");
   }
 
-  const existingUser = await User.findOne({ phone});
+  const existingUser = await User.findOne({ phone });
   if (existingUser) {
     throw new ApiError(409, "User with this email already exists");
   }
@@ -22,20 +23,20 @@ const registerUser = asyncHandler(async (req, res) => {
   if (pendingUser) {
     await PendingUser.deleteOne({ _id: pendingUser._id });
   }
-  const pending = await PendingUser.create({ name, email, password,phone });
-  const otp=generateOTP();
+  const pending = await PendingUser.create({ name, email, password, phone });
+  const otp = generateOTP();
   pending.verificationToken = otp;
-  pending.verificationTokenExpires = new Date(Date.now()+10*60*1000);
-if (req.file) {
-  pending.profilePic = req.file.path;
-}
-await pending.save();
-  await sendOTP(phone ,otp);
+  pending.verificationTokenExpires = new Date(Date.now() + 10 * 60 * 1000);
+  if (req.file) {
+    pending.profilePic = req.file.path;
+  }
+  await pending.save();
+  await sendOTP(phone, otp);
   return res.status(200).json(new apiResponce(200, {}, "Please verify your phone number"));
 });
 
 const loginUser = asyncHandler(async (req, res) => {
-  const {phone, password } = req.body;
+  const { phone, password } = req.body;
 
   if (!phone || !password) {
     throw new ApiError(400, "Email and password are required");
@@ -56,13 +57,13 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 
   const token = user.generateAuthToken();
-    res.cookie('authToken', token, {
+  res.cookie('authToken', token, {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
     path: '/',
-    maxAge: 6 * 30 * 24 * 60 * 60 * 1000 
-});
+    maxAge: 6 * 30 * 24 * 60 * 60 * 1000
+  });
   return res.status(200).json(
     new apiResponce(200, {}, "User logged in successfully")
   );
@@ -84,14 +85,14 @@ const forgotPasswordEmail = asyncHandler(async (req, res) => {
   let exists = true;
 
   while (exists) {
-  resetToken = crypto.randomBytes(20).toString("hex");
-  exists = await PendingUser.exists({ verificationToken: resetToken });
- }
+    resetToken = crypto.randomBytes(20).toString("hex");
+    exists = await PendingUser.exists({ verificationToken: resetToken });
+  }
   const hashedResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-  const pending= await PendingUser.create({
+  const pending = await PendingUser.create({
     email: user.email,
-    verificationToken:hashedResetToken,
-    verificationTokenExpires:new Date(Date.now() + 3600000)
+    verificationToken: hashedResetToken,
+    verificationTokenExpires: new Date(Date.now() + 3600000)
   })
 
 
@@ -131,7 +132,8 @@ const verifyEmail = asyncHandler(async (req, res) => {
 
   const pending = await PendingUser.findOne({
     verificationToken: hashedToken,
-    verificationTokenExpires: { $gt: new Date() },  });
+    verificationTokenExpires: { $gt: new Date() },
+  });
 
   if (!pending) {
     throw new ApiError(400, "Email verification token is invalid or has expired");
@@ -141,14 +143,15 @@ const verifyEmail = asyncHandler(async (req, res) => {
 
 });
 
-const verifyOtp = asyncHandler(async(req,res)=>{
-  const otp=req.body.otp;
-  if(!otp){
-    throw new ApiError(400,"otp required");
+const verifyOtp = asyncHandler(async (req, res) => {
+  const otp = req.body.otp;
+  if (!otp) {
+    throw new ApiError(400, "otp required");
   }
   const pending = await PendingUser.findOne({
     verificationToken: otp,
-    verificationTokenExpires: { $gt: new Date() },  });
+    verificationTokenExpires: { $gt: new Date() },
+  });
 
   if (!pending) {
     throw new ApiError(400, "OTP verification token is invalid or has expired");
@@ -168,19 +171,19 @@ const verifyOtp = asyncHandler(async(req,res)=>{
   const userData = user.toObject();
   delete userData.password;
   return res.status(200).json(new apiResponce(200, userData, "Email verified successfully"));
-   
+
 })
 
 const resetPasswordEmail = asyncHandler(async (req, res) => {
   const { token } = req.params;
-  const {password}= req.body;
-  if(!password){
-    throw new ApiError(400,"password is required");
+  const { password } = req.body;
+  if (!password) {
+    throw new ApiError(400, "password is required");
   }
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-  const pending=await PendingUser.findOne({
-    
+  const pending = await PendingUser.findOne({
+
     verificationToken: hashedToken,
     verificationTokenExpires: { $gt: new Date() },
   })
@@ -193,18 +196,18 @@ const resetPasswordEmail = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "User not found");
   }
-  
+
   user.password = password;
-  user.tokenVersion +=1;
+  user.tokenVersion += 1;
   await user.save({ validateBeforeSave: false });
   await PendingUser.deleteOne({ _id: pending._id });
   if (req.cookies?.authToken) {
     res.clearCookie('authToken', {
-     httpOnly: true,
-     secure: true,
-     path:'/',
-     sameSite: 'lax',
-   });
+      httpOnly: true,
+      secure: true,
+      path: '/',
+      sameSite: 'lax',
+    });
   }
   return res.status(200).json(
     new apiResponce(200, {}, "password reset successful")
@@ -270,6 +273,21 @@ const Logout = asyncHandler((req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 });
 
+const handleSocialLogin = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const token = user.generateAuthToken();
+
+  res.cookie('authToken', token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 6 * 30 * 24 * 60 * 60 * 1000
+  });
+
+  // Redirect to frontend home page
+  res.redirect(`${process.env.CORS_ORIGIN}/home`);
+});
 
 export {
   registerUser,
@@ -280,5 +298,6 @@ export {
   Logout,
   verifyOtp,
   forgotPasswordOTP,
-  resetPasswordOTP
+  resetPasswordOTP,
+  handleSocialLogin
 };
