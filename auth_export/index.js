@@ -9,8 +9,216 @@ const crypto = require('crypto');
 
 app.use(express.json());
 
-
 const otpStore = new Map();
+
+// 1. Get Current User API
+app.get("/user/:phone", async function (req, res) {
+    const { phone } = req.params;
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!phone) {
+        return res.status(400).json({
+            message: "Phone number is required"
+        });
+    }
+
+    if (!token) {
+        return res.status(401).json({
+            message: "Authentication token is required"
+        });
+    }
+
+    try {
+        // Verify JWT token
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Get user data
+        const user = await UserModel.findOne({ phone: phone }).select('-password');
+        
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
+
+        // Check if the requesting user has permission to access this data
+        if (decoded.id !== user._id.toString() && decoded.phone !== phone) {
+            return res.status(403).json({
+                message: "Unauthorized access"
+            });
+        }
+
+        res.json({
+            success: true,
+            user: {
+                id: user._id,
+                phone: user.phone,
+                name: user.name,
+                email: user.email,
+                gender: user.gender,
+                profilePic: user.profilePic,
+                bio: user.bio,
+                age: user.age,
+                isProfileComplete: user.isProfileComplete,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            }
+        });
+
+    } catch (error) {
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                message: "Invalid token"
+            });
+        }
+        console.error("Get user error:", error);
+        res.status(500).json({
+            message: "Internal server error"
+        });
+    }
+});
+
+// 2. Update User Avatar API
+app.put("/user/avatar", async function (req, res) {
+    const { phone, imgUrl } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!phone || !imgUrl) {
+        return res.status(400).json({
+            message: "Phone number and image URL are required"
+        });
+    }
+
+    if (!token) {
+        return res.status(401).json({
+            message: "Authentication token is required"
+        });
+    }
+
+    try {
+        // Verify JWT token
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Find user by phone number
+        const user = await UserModel.findOne({ phone: phone });
+        
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
+
+        // Check if the requesting user has permission to update this user's avatar
+        if (decoded.id !== user._id.toString() && decoded.phone !== phone) {
+            return res.status(403).json({
+                message: "Unauthorized access"
+            });
+        }
+
+        // Validate image URL (basic validation)
+        if (!imgUrl.startsWith('http://') && !imgUrl.startsWith('https://')) {
+            return res.status(400).json({
+                message: "Invalid image URL format"
+            });
+        }
+
+        // Update avatar
+        user.profilePic = imgUrl;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: "Avatar updated successfully",
+            code: "AVATAR_UPDATED",
+            user: {
+                id: user._id,
+                phone: user.phone,
+                profilePic: user.profilePic
+            }
+        });
+
+    } catch (error) {
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                message: "Invalid token"
+            });
+        }
+        console.error("Update avatar error:", error);
+        res.status(500).json({
+            message: "Internal server error"
+        });
+    }
+});
+
+// 3. Change Password API
+app.put("/user/change-password", async function (req, res) {
+    const { phone, newPassword } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!phone || !newPassword) {
+        return res.status(400).json({
+            message: "Phone number and new password are required"
+        });
+    }
+
+    if (!token) {
+        return res.status(401).json({
+            message: "Authentication token is required"
+        });
+    }
+
+    // Password strength validation
+    if (newPassword.length < 6) {
+        return res.status(400).json({
+            message: "Password must be at least 6 characters long"
+        });
+    }
+
+    try {
+        // Verify JWT token
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Find user by phone number
+        const user = await UserModel.findOne({ phone: phone });
+        
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
+
+        // Check if the requesting user has permission to change this user's password
+        if (decoded.id !== user._id.toString() && decoded.phone !== phone) {
+            return res.status(403).json({
+                message: "Unauthorized access"
+            });
+        }
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        // Update password
+        user.password = hashedPassword;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: "Password changed successfully",
+            code: "PASSWORD_CHANGED"
+        });
+
+    } catch (error) {
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                message: "Invalid token"
+            });
+        }
+        console.error("Change password error:", error);
+        res.status(500).json({
+            message: "Internal server error"
+        });
+    }
+});
 
 // 1. Registration with OTP API
 app.post("/register", async function (req, res) {
