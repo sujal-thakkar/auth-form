@@ -5,6 +5,8 @@ import asyncHandler from '../../../utils/AsyncHandler.js';
 const registerSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
+  phone: z.string().min(1, "Phone number is required").regex(/^\+?\d{10,15}$/,
+    "Phone number must include country code and contain 10-15 digits"),
   password: z.string().min(8, "Password must be at least 8 characters").regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one uppercase letter, one lowercase letter, and one number"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -20,6 +22,9 @@ const loginSchema = z.object({
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
+const otpVerifySchema = z.object({
+  otp: z.string().min(1, "OTP is required")  // ensures otp is a non-empty string
+});
 
 const resetPasswordSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters").regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one uppercase letter, one lowercase letter, and one number"),
@@ -31,13 +36,19 @@ const resetPasswordSchema = z.object({
 
 const validate = (schema) => asyncHandler(async (req, res, next) => {
   try {
-    await schema.parseAsync(req.body);
+    const body = { ...req.body }; // <-- convert to normal object
+    console.log(body)
+    await schema.parseAsync(body);
     next();
   } catch (error) {
-    const errors = error.errors.map((err) => err.message);
-    throw new ApiError(400, "Validation failed", error);
+    if (error.name === "ZodError") {
+      const errors = error.issues.map((issue) => issue.message);
+      return next(new ApiError(400, "Validation failed", errors));
+    }
+    return next(error);
   }
 });
+
 
 export {
   validate,
@@ -45,4 +56,5 @@ export {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  otpVerifySchema
 };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Lock } from 'lucide-react';
+import { User, Mail, Lock, Phone } from 'lucide-react';
 import FormInput from './FormInput';
 import PasswordStrength from './PasswordStrength';
 
@@ -28,6 +28,16 @@ const SignupForm = ({ formData, handleInputChange, errors }) => {
         onChange={handleInputChange}
         placeholder="Enter your email"
         error={errors.email}
+      />
+      <FormInput
+        label="Phone Number *"
+        icon={Phone}
+        type="tel"
+        name="phone"
+        value={formData.phone}
+        onChange={handleInputChange}
+        placeholder="Enter your phone number"
+        error={errors.phone}
       />
       <FormInput
         label="Password *"

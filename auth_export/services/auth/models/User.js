@@ -17,9 +17,12 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
     minlength: 8,
   },
+  profilePic: { type: String },
+  phone: String,
+  googleId: String,
+  facebookId: String,
   isVerified: {
     type: Boolean,
     default: false,
@@ -41,11 +44,13 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 
 // Generate JWT token
 userSchema.methods.generateAuthToken = function () {
-  return jwt.sign({ email: this.email, tokenVersion: this.tokenVersion }, process.env.JWT_SECRET,{
-  expiresIn: "180d" 
-});
+  return jwt.sign({ email: this.email, tokenVersion: this.tokenVersion }, process.env.JWT_SECRET, {
+    expiresIn: "180d"
+  });
 
 };
+
+userSchema.index({ phone: 1 });
 
 const User = mongoose.model('User', userSchema);
 
